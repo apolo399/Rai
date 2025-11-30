@@ -85,6 +85,7 @@ def on_message_function(allow_bots: bool = False,
         if wrapper.__name__ not in [f['func'].__name__ for f in on_message_functions]:
             on_message_functions.append({
                 'func': wrapper,  # Use the wrapper instead of the original function
+                'allow_dms': allow_dms,
                 'allow_bots': allow_bots,
                 'allow_self': allow_self,
             })
