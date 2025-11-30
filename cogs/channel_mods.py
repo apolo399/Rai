@@ -1696,11 +1696,10 @@ class ChannelMods(commands.Cog):
 
             # Prepare confirmation message to be sent to ctx channel of mute command
             notif_text = f"**{str(target)}** ({target.id}) has been **muted** from text and voice chats."
-
             interval_str = format_interval(
                 timedelta(days=length[0], hours=length[1], minutes=length[2]))
-            notif_text = f"{notif_text[:-1]} for {interval_str} (until <t:{int(time_obj.timestamp())}:f>)."
-
+            notif_text = (f"{notif_text[:-1]} for {interval_str} "
+                          f"(unmute on <t:{int(timestamp)}:f> - <t:{int(timestamp)}:R>).")
             if reason:
                 notif_text += f"\nReason: {reason}"
 
@@ -1711,14 +1710,13 @@ class ChannelMods(commands.Cog):
             emb.add_field(name="User", value=f"{str(target)} ({target.id})",
                           inline=False)
 
-            emb.title = "Temporary " + emb.title
-            if length[2]:
-                dhm_str = f"{length[0]}d{length[1]}h{length[2]}m"
+            if time_string:
+                emb.title = "Temporary " + emb.title
+                emb.add_field(name="Mute duration",
+                              value=f"For {interval_str} (unmute on <t:{int(timestamp)}:f> - <t:{int(timestamp)}:R>)",
+                              inline=False)
             else:
-                dhm_str = f"{length[0]}d{length[1]}h"
-            emb.add_field(name="Mute duration",
-                          value=f"For {dhm_str} (unmute on <t:{int(timestamp)}:f> - <t:{int(timestamp)}:R>)",
-                          inline=False)
+                emb.title = "Permanent " + emb.title
 
             if reason:
                 reason_field = reason
