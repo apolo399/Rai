@@ -647,6 +647,30 @@ class ChannelMods(commands.Cog):
     # external-facing user command
     @commands.command(aliases=['r', 't', 'tag'])
     async def role(self, ctx, *, args):
+        """Assigns a role to a user. Type `;role <user> <tag codes>`. You can specify
+        multiple languages, fluent languages, or "None" to take away roles.
+        Username must not have spaces, or they must be surrounded with quotation marks.
+
+        Add `-` before a role name to remove it.
+
+        __Tag codes:__
+        - English Native: `english`,  `en`,  `ne`,  `e`
+        - Spanish Native: `spanish`,  `sn`,  `ns`,  `s`
+        - Other Language: `other`,  `ol`,  `o`
+        - Fluency roles: `fe`,  `ie`,  `be`,  `fs`,  `is`,  `bs`
+        (Fluent, Intermediate, Beginner for English and Spanish)
+        - Learning Roles: `le`,  `ls`
+        - Heritage Roles: `he`,  `hs`
+        - Remove all roles: `none`,  `n`
+
+        __Examples:__
+        - `;role @Ryry013 e` → *Gives English to Ryry013*
+        - `;role spanish`  → *Gives to the last roleless user in the channel*
+        - `;r Abelian e o as` → *Give English, Other, and Advanced Spanish*
+        - `;r Ryry013 ne -ns` → *Give English, take away Native Spanish*
+        - `;r "Long name" e` → *Give English to "Long name"*
+        - `;r Ryry013 none` → *Take away all roles from Ryry013*
+        - `;r Ryry013 none ne ls` → *Take away all roles except Native English and Learning Spanish from Ryry013*"""
         if ctx.guild.id != SP_SERV:
             return
 
@@ -1547,7 +1571,7 @@ class ChannelMods(commands.Cog):
         await ctx.invoke(self.modlog_edit.invoke, user, index, reason=reason)
 
     @commands.command()
-    @commands.bot_has_permissions(manage_roles=True, embed_links=True)
+    @commands.bot_has_permissions(moderate_members=True, embed_links=True)
     @commands.max_concurrency(1, commands.BucketType.member)
     async def mute(self, ctx: commands.Context, *, args):
         """Mutes a user.  Syntax: `;mute <time> <member> [reason]`.  Example: `;mute 1d2h Abelian`."""
@@ -1561,7 +1585,7 @@ class ChannelMods(commands.Cog):
         reason = args.reason
         target_ids = args.user_ids
 
-        if timedelta_obj.days > 28:
+        if timedelta_obj.total_seconds() > 28 * 24 * 3600:  # 28 days
             await utils.safe_reply(ctx, "You can not mute for longer than 28 days. "
                                         "Please consider a temporary ban.")
             return
@@ -1582,15 +1606,15 @@ class ChannelMods(commands.Cog):
         if not length:
             time_arg, time_string, length, time_obj, timedelta_obj = change_mute_duration(
                 1)
-            await utils.safe_reply(ctx, "Indefinitite mutes are not possilbe; changing duration to 1d.")
+            await utils.safe_reply(ctx, "Indefinitite mutes are not possible; changing duration to 1d.")
 
         # time_string should always be *something* now
         assert bool(time_string)
 
-        # for channel helpers, limit mute time to three hours
+        # for channel helpers, limit mute time to 24 hours
         if not hf.submod_check(ctx):
             if time_string:  # if the channel helper specified a time for the mute
-                total_hours = timedelta_obj.total_seconds() * 60 * 60
+                total_hours = timedelta_obj.total_seconds() / 60 / 60
                 if total_hours > 24:
                     time_arg, time_string, length, time_obj, timedelta_obj = change_mute_duration(
                         1)
@@ -1602,8 +1626,9 @@ class ChannelMods(commands.Cog):
             if '-s' in reason or '-n' in reason:
                 if ctx.guild.id == JP_SERV:
                     await utils.safe_send(ctx, "Maybe you meant to use Ciri?")
-                reason = reason.replace(
-                    ' -s', '').replace('-s ', '').replace('-s', '')
+                # use regex to remove -s when in own word boundary
+                reason = re.sub(r'(?:^|\s)(-[sn])(?:\s|$)', ' ', reason)
+                reason = re.sub(r' +', ' ', reason).strip()
                 silent = True
 
         for target_id in target_ids:
@@ -1636,14 +1661,11 @@ class ChannelMods(commands.Cog):
             emb = utils.red_embed("")
             emb.title = description
             emb.color = discord.Color(int('ff8800', 16))  # embed
-            if time_arg:
-                timestamp = int(time_obj.timestamp())
-                emb.add_field(name="Length",
-                              value=f"{time_arg} (will be unmuted on <t:{timestamp}> - <t:{timestamp}:R> )",
-                              inline=False)
-            else:
-                timestamp = 0
-                emb.add_field(name="Length", value="Indefinite", inline=False)
+
+            timestamp = int(time_obj.timestamp())
+            emb.add_field(name="Length",
+                          value=f"{time_arg} (will be unmuted on <t:{timestamp}> - <t:{timestamp}:R> )",
+                          inline=False)
             if reason:
                 if len(reason) <= 1024:
                     emb.add_field(name="Reason", value=reason)
@@ -1674,10 +1696,11 @@ class ChannelMods(commands.Cog):
 
             # Prepare confirmation message to be sent to ctx channel of mute command
             notif_text = f"**{str(target)}** ({target.id}) has been **muted** from text and voice chats."
-            if time_string:
-                interval_str = format_interval(
-                    timedelta(days=length[0], hours=length[1], minutes=length[2]))
-                notif_text = f"{notif_text[:-1]} for {interval_str} (until <t:{int(time_obj.timestamp())}:f>)."
+
+            interval_str = format_interval(
+                timedelta(days=length[0], hours=length[1], minutes=length[2]))
+            notif_text = f"{notif_text[:-1]} for {interval_str} (until <t:{int(time_obj.timestamp())}:f>)."
+
             if reason:
                 notif_text += f"\nReason: {reason}"
 
@@ -1688,17 +1711,14 @@ class ChannelMods(commands.Cog):
             emb.add_field(name="User", value=f"{str(target)} ({target.id})",
                           inline=False)
 
-            if time_string:
-                emb.title = "Temporary " + emb.title
-                if length[2]:
-                    dhm_str = f"{length[0]}d{length[1]}h{length[2]}m"
-                else:
-                    dhm_str = f"{length[0]}d{length[1]}h"
-                emb.add_field(name="Mute duration",
-                              value=f"For {dhm_str} (unmute on <t:{int(timestamp)}:f> - <t:{int(timestamp)}:R>)",
-                              inline=False)
+            emb.title = "Temporary " + emb.title
+            if length[2]:
+                dhm_str = f"{length[0]}d{length[1]}h{length[2]}m"
             else:
-                emb.title = "Permanent " + emb.title
+                dhm_str = f"{length[0]}d{length[1]}h"
+            emb.add_field(name="Mute duration",
+                          value=f"For {dhm_str} (unmute on <t:{int(timestamp)}:f> - <t:{int(timestamp)}:R>)",
+                          inline=False)
 
             if reason:
                 reason_field = reason

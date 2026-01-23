@@ -323,8 +323,9 @@ class General(commands.Cog):
             await utils.safe_send(ctx, f"Created forced hardcore mode config; "
                                   f"added {ctx.channel.name} to list of channels for forced hardcore mode")
 
-    @hardcore.command()
-    async def ignore(self, ctx):
+    @hardcore.command(name="ignore")
+    @hf.is_admin()
+    async def hardcore_ignore(self, ctx):
         """Ignores a channel for hardcore mode."""
         if str(ctx.guild.id) in self.bot.db['hardcore']:
             config = self.bot.db['hardcore'][str(ctx.guild.id)]
@@ -1102,10 +1103,10 @@ class General(commands.Cog):
         if not failed:
             return True
 
-    @commands.command(aliases=['selfmute', 'sm'])
+    @commands.command(aliases=['sm'])
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
-    async def self_mute(self, ctx: commands.Context, time: Optional[str] = None):
+    async def selfmute(self, ctx: commands.Context, time: Optional[str] = None):
         """Irreversible mutes yourself for a certain amount of time. Use like `;selfmute <amount of time>`.
 
         Examples:
@@ -1133,6 +1134,11 @@ class General(commands.Cog):
         if ctx.channel.id != 247135634265735168 and ctx.guild.id == SP_SERVER_ID:
             await utils.safe_reply(ctx, "Please use the selfmute command in the bot channel: "
                                    "<#247135634265735168>")
+            return
+
+        if ctx.channel.id != 415356500676968448 and ctx.guild.id == CL_SERVER_ID:
+            await utils.safe_reply(ctx, "Please use the selfmute command in the bot spam channel: "
+                                   "<#415356500676968448>")
             return
 
         if time:
@@ -1182,7 +1188,7 @@ class General(commands.Cog):
         msg = ctx.message
         try:
             msg = await self.bot.wait_for('message',
-                                          timeout=15,
+                                          timeout=45,
                                           check=lambda m: m.author == ctx.author and m.channel == ctx.channel)
 
             if msg.content.casefold() == 'yes':  # confirm
@@ -1195,10 +1201,11 @@ class General(commands.Cog):
 
                 try:
                     await ctx.author.timeout(delta_obj, reason="RAI_SELFMUTE")
+                    # log even if using a Discord timeout
+                    config[str(ctx.author.id)] = {'enable': False, 'time': timestamp}
                 except (discord.Forbidden, discord.HTTPException):
                     # someone who Rai couldn't timeout
-                    config[str(ctx.author.id)] = {
-                        'enable': True, 'time': timestamp}
+                    config[str(ctx.author.id)] = {'enable': True, 'time': timestamp}
 
                 await conf.reply(f"Muted {ctx.author.display_name} for {delta_str}. This is irreversible.\n"
                                  f"Unmute time: <t:{timestamp}> (<t:{timestamp}:R>)")
