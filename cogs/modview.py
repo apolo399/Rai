@@ -10,6 +10,11 @@ import cogs.channel_mods as cm
 from cogs.utils import modlog_utils as mlu
 from cogs.utils.BotUtils import bot_utils as utils
 
+async def _interaction_check(author_id, interaction: discord.Interaction) -> bool:  # pylint: disable=W0221
+        if interaction.user.id != author_id:
+            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
+            return False
+        return True
 
 class ModView(discord.ui.View):
     def __init__(self, parent_cog: "cm.ChannelMods", manage_cog: "UserManage", ctx_or_interaction: Union[commands.Context, discord.Interaction], id_arg: str):
@@ -51,10 +56,7 @@ class ModView(discord.ui.View):
 
     @discord.ui.button(label="Open log", style=discord.ButtonStyle.primary)
     async def modlog_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
-
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.defer(ephemeral=True)
 
         # Use UserProfile to get modlog entries
@@ -69,10 +71,7 @@ class ModView(discord.ui.View):
 
     @discord.ui.button(label="Mute", style=discord.ButtonStyle.secondary)
     async def mute_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
-
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.defer(ephemeral=True)
 
         # # Build a fake message that simulates the command call
@@ -104,10 +103,7 @@ class ModView(discord.ui.View):
 
     @discord.ui.button(label="Warn", style=discord.ButtonStyle.blurple)
     async def warn_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
-
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.defer(ephemeral=True)
 
         # Build a fake message that simulates the command call
@@ -177,10 +173,7 @@ class PaginatedModLogView(discord.ui.View):
 
     @discord.ui.button(label="← Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
-
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.defer()
         embed = await self.user_profile.build_summary_embed()
 
@@ -193,17 +186,12 @@ class PaginatedModLogView(discord.ui.View):
 
     @discord.ui.button(label="➕ Add Entry", style=discord.ButtonStyle.success, row=1)
     async def add_entry_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
-
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.send_modal(AddModlogEntryModal(self, "Log"))
 
     @discord.ui.button(label="<< First", style=discord.ButtonStyle.secondary, custom_id="first", row=0)
     async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 You can’t do that.", ephemeral=True)
-            return
+        await _interaction_check(self.author_id, interaction)
         self.page = 0
         self.update_children()
         embed, _ = await self.user_profile.build_modlog_embed(self.page)
@@ -211,9 +199,7 @@ class PaginatedModLogView(discord.ui.View):
 
     @discord.ui.button(label="< Previous", style=discord.ButtonStyle.secondary, custom_id="prev", row=0)
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 You can’t do that.", ephemeral=True)
-            return
+        await _interaction_check(self.author_id, interaction)
         self.page -= 1
         self.update_children()
         embed, _ = await self.user_profile.build_modlog_embed(self.page)
@@ -221,9 +207,7 @@ class PaginatedModLogView(discord.ui.View):
 
     @discord.ui.button(label="Next >", style=discord.ButtonStyle.secondary, custom_id="next", row=0)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
+        await _interaction_check(self.author_id, interaction)
 
         self.page += 1
         self.update_children()
@@ -232,20 +216,13 @@ class PaginatedModLogView(discord.ui.View):
 
     @discord.ui.button(label="Last >>", style=discord.ButtonStyle.secondary, custom_id="last", row=0)
     async def last_button(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
+        await _interaction_check(self.author_id, interaction)
 
         self.page = self.total_pages-1
         self.update_children()
         embed, _ = await self.user_profile.build_modlog_embed(self.page)
         await interaction.response.edit_message(embed=embed, view=self)
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:  # pylint: disable=W0221
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can interact.", ephemeral=True)
-            return False
-        return True
 
 
 class LogEntrySelector(discord.ui.Select):
@@ -368,16 +345,12 @@ class MuteConfirmationView(discord.ui.View):
 
     @discord.ui.button(label="Add Reason/Duration", style=discord.ButtonStyle.primary)
     async def add_reason(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.send_modal(AddModlogEntryModal(self, "Mute"))
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
     async def confirm_mute(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.defer(ephemeral=True)
 
         # Build a fake message that simulates the command call
@@ -390,9 +363,7 @@ class MuteConfirmationView(discord.ui.View):
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger)
     async def cancel_mute(self, interaction: discord.Interaction, button: discord.ui.Button):  # pylint: disable=W0613
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("🚫 Only the original author can use this.", ephemeral=True)
-            return
+        await _interaction_check(self.author_id, interaction)
         await interaction.response.defer(ephemeral=True)
 
 # class BanView(discord.ui.View):
@@ -536,26 +507,6 @@ class UserManage(commands.Cog):
         super().__init__()
         self.bot = bot
 
-    # @commands.group(aliases=['manage', 'um'], invoke_without_command=True)
-    # async def user_manage(self, ctx: commands.Context, *, id_arg: str):
-    #     member, user, user_id = await mlu.resolve_user(ctx, id_arg, self.bot)
-
-    #     if not user:
-    #         emb = utils.red_embed("")
-    #         emb.set_author(name="COULD NOT FIND USER")
-    #         await utils.safe_send(ctx, embed=emb)
-    #         return
-
-    #     # Build detailed user summary embed
-    #     embed = await mlu.build_user_summary_embed(self.bot, ctx, member, user)
-    #     mod_cog = ctx.bot.get_cog("ChannelMods")
-    #     # Create interactive button view
-    #     view = ModView(mod_cog, self, ctx, user_id)
-    #     await view.init()
-
-    #     message = await utils.safe_send(ctx, embed=embed, view=view)
-    #     view.message = message
-
     async def launch_user_manage_view(
         self,
         interaction: Union[commands.Context, Interaction],
@@ -587,12 +538,7 @@ class UserManage(commands.Cog):
 
     @commands.group(aliases=['manage', 'um'], invoke_without_command=True)
     async def user_manage(self, ctx: commands.Context, *, id_arg: str):
-        user_profile = await mlu.UserProfile.create(self.bot, ctx, id_arg)
-        if not user_profile:
-            emb = utils.red_embed("")
-            emb.set_author(name="COULD NOT FIND USER")
-            await utils.safe_send(ctx, embed=emb)
-            return
+        user_profile = await mlu.UserProfile.create(self.bot, ctx, id_arg)        
 
         await self.launch_user_manage_view(ctx, user_profile.member, user_profile.user)
 
